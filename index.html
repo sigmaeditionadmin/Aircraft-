@@ -74,6 +74,8 @@ button {
 <script>
 let selectedKingdoms = [];
 let turn = 1;
+let attackCount = 0; // counts attacks per turn
+const maxAttacksPerTurn = 2; // limit of attacks
 
 const map = document.getElementById("map");
 const log = document.getElementById("log");
@@ -158,9 +160,20 @@ function attackMultiple(attackers, defender){
     selectedKingdoms = [];
     drawMap();
     checkWin();
+
+    // Increment attack count
+    attackCount++;
+    if(attackCount >= maxAttacksPerTurn){
+        addLog("⏳ You attacked 2 enemies, your turn ends!");
+        endTurn(); // automatically end turn
+        attackCount = 0; // reset for next turn
+    } else {
+        addLog("⚡ Attacks left this turn: " + (maxAttacksPerTurn - attackCount));
+    }
 }
 
 function endTurn(){
+    attackCount = 0; // reset attacks for new turn
     turn++;
     addLog("— Turn "+turn+" —");
 
@@ -204,6 +217,7 @@ function checkWin(){
 
 function resetGame(){
     turn=1;
+    attackCount=0;
     selectedKingdoms=[];
     log.innerHTML="<h2>👑 Iron Crown</h2><h3>Battle Log</h3>";
     generateMap();
@@ -221,4 +235,4 @@ drawMap();
 </script>
 
 </body>
-</html>
+</html> 
