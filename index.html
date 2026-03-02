@@ -56,9 +56,10 @@ button {
 .enemy { background:crimson; }
 .action-btns {
     position:absolute;
-    top:-60px;
     display:flex;
     gap:5px;
+    top:-40px; /* above kingdom */
+    left:0;
 }
 .action-btns button {
     padding:4px 6px;
@@ -83,6 +84,7 @@ button {
 <script>
 let selectedKingdoms = [];
 let turn = 1;
+let allianceRequests = 0; // Count alliances used this turn
 
 const map = document.getElementById("map");
 const log = document.getElementById("log");
@@ -101,6 +103,7 @@ function generateMap() {
             owner:i===0?"player":"enemy"
         });
     }
+    allianceRequests = 0;
 }
 
 // Draw kingdoms on the map
@@ -141,6 +144,13 @@ function handleKingdomClick(k, div){
         drawMap();
     }
     else if(k.owner==="enemy" && selectedKingdoms.length > 0){
+        // If 2 alliances already requested, force attack
+        if(allianceRequests >= 2){
+            addLog("⚠ You have used 2 alliances, you must attack!");
+            attackSingleTurn(selectedKingdoms, k);
+            return;
+        }
+
         // Show action buttons for this enemy
         const btnContainer = document.createElement("div");
         btnContainer.className = "action-btns";
@@ -202,20 +212,24 @@ function attackSingleTurn(attackerKingdoms, defender){
     drawMap();
     checkWin();
 
+    // After player attack, AI attacks once
     enemyTurn();
 }
 
 // Player requests alliance with enemy kingdom
 function requestAlliance(enemyKingdom){
+    allianceRequests++;
     let chance = Math.random();
     if(chance <= 0.25){ // 25% chance success
         enemyKingdom.owner = "player";
         addLog("🤝 Alliance successful! Kingdom joined you.");
     } else {
-        addLog("❌ Alliance rejected! Kingdom remains enemy.");
+        addLog("❌ Alliance rejected! You can still act this turn unless you have requested 2 alliances.");
     }
 
     drawMap();
+
+    // After alliance attempt, AI attacks once
     enemyTurn();
 }
 
@@ -268,6 +282,7 @@ function checkWin(){
 function resetGame(){
     turn=1;
     selectedKingdoms=[];
+    allianceRequests = 0;
     log.innerHTML="<h2>👑 Iron Crown</h2><h3>Battle Log</h3>";
     generateMap();
     drawMap();
