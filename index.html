@@ -12,13 +12,12 @@ body {
     height:100vh;
 }
 #log {
-    width:250px;
+    width:260px;
     height:100%;
     overflow-y:auto;
     background:#111;
     padding:10px;
     box-sizing:border-box;
-    flex-shrink:0;
 }
 #main {
     flex-grow:1;
@@ -32,12 +31,10 @@ body {
     margin:5px;
     overflow:hidden;
 }
-button {
-    padding:10px;
-    margin:5px;
-    font-size:16px;
-    cursor:pointer;
+#turn-info {
+    padding:5px;
 }
+
 .kingdom {
     position:absolute;
     width:60px;
@@ -49,25 +46,31 @@ button {
     cursor:pointer;
     font-size:12px;
     text-align:center;
-    padding:5px;
     border:2px solid black;
 }
+
 .player { background:gold; color:black; }
 .enemy { background:crimson; }
+.ally { background:royalblue; }
+
 .action-btns {
     position:absolute;
     display:flex;
     gap:5px;
-    top:-40px; /* above kingdom */
+    top:-40px;
     left:0;
 }
 .action-btns button {
     padding:4px 6px;
     font-size:10px;
 }
-#turn-info {
-    padding:5px;
-    font-size:14px;
+
+/* Arrow line */
+.arrow {
+    position:absolute;
+    height:3px;
+    background:white;
+    transform-origin:0 0;
 }
 </style>
 </head>
@@ -80,262 +83,261 @@ button {
 
 <div id="main">
     <div>
-        <button onclick="resetGame()">Reset Game</button>
-        <span id="turn-info">Turn: 1 | Attacks this turn: 0/2 | Allies: 0/2</span>
+        <button onclick="resetGame()">Reset</button>
+        <span id="turn-info"></span>
     </div>
     <div id="map"></div>
 </div>
 
 <script>
+let kingdoms = [];
 let selectedKingdoms = [];
 let turn = 1;
-let attacksThisTurn = 0;  // Attacks this turn
-let totalAlliancesFormed = 0; // Maximum 2 allies for the whole game
+let attacksThisTurn = 0;
 
 const map = document.getElementById("map");
 const log = document.getElementById("log");
 const turnInfo = document.getElementById("turn-info");
-let kingdoms = [];
-let currentActionButtons = null;
 
-// Generate random map with kingdoms
-function generateMap() {
+function addLog(text){
+    log.innerHTML += text + "<br>";
+    log.scrollTop = log.scrollHeight;
+}
+
+function updateTurnInfo(){
+    let allyCount = kingdoms.filter(k=>k.owner==="ally").length;
+    turnInfo.innerText = "Turn: "+turn+" | Attacks: "+attacksThisTurn+"/2 | Allies: "+allyCount+"/2";
+}
+
+/* --- SAFE SPAWN (no overlapping) --- */
+function generateMap(){
     kingdoms = [];
+    const minDistance = 12;
+
     for(let i=0;i<12;i++){
+        let x,y,valid;
+
+        do{
+            valid = true;
+            x = Math.random()*80;
+            y = Math.random()*80;
+
+            for(let k of kingdoms){
+                let dx = k.x - x;
+                let dy = k.y - y;
+                if(Math.sqrt(dx*dx + dy*dy) < minDistance){
+                    valid = false;
+                    break;
+                }
+            }
+        }while(!valid);
+
         kingdoms.push({
             id:i,
-            x:Math.random()*80, 
-            y:Math.random()*80,
+            x:x,
+            y:y,
             troops:30+Math.floor(Math.random()*20),
-            owner:i===0?"player":"enemy"
+            owner: i===0 ? "player" : "enemy"
         });
     }
-    startTurn();
-    drawMap();
-    addLog("Game started! Your turn begins.");
 }
 
-// Start a new turn
-function startTurn() {
-    selectedKingdoms = [];
-    attacksThisTurn = 0;
-    updateTurnInfo();
-}
-
-// Draw kingdoms on the map
+/* --- DRAW MAP --- */
 function drawMap(){
     map.innerHTML="";
     kingdoms.forEach(k=>{
         const div = document.createElement("div");
         div.className = "kingdom " + k.owner;
-        div.style.left = k.x + "%";
-        div.style.top = k.y + "%";
-        div.innerHTML = "🏰<br>" + k.troops;
+        div.style.left = k.x+"%";
+        div.style.top = k.y+"%";
+        div.innerHTML="🏰<br>"+k.troops;
 
-        if(selectedKingdoms.includes(k)){
-            div.style.boxShadow = "0 0 12px 3px yellow";
-        }
+        div.onclick = ()=>handleClick(k,div);
 
-        div.onclick = () => handleKingdomClick(k, div);
         map.appendChild(div);
     });
 }
 
-// Handle click on a kingdom
-function handleKingdomClick(k, div){
-    // Remove old buttons
-    if(currentActionButtons){
-        currentActionButtons.remove();
-        currentActionButtons = null;
-    }
+/* --- CLICK --- */
+function handleClick(k,div){
 
-    if(k.owner==="player"){
+    if(k.owner==="player" || k.owner==="ally"){
         if(selectedKingdoms.includes(k)){
-            selectedKingdoms = selectedKingdoms.filter(kk => kk !== k);
-            addLog("Deselected kingdom with " + k.troops + " troops.");
+            selectedKingdoms = selectedKingdoms.filter(x=>x!==k);
         } else {
             selectedKingdoms.push(k);
-            addLog("Selected kingdom with " + k.troops + " troops.");
         }
         drawMap();
-    }
-    else if(k.owner==="enemy" && selectedKingdoms.length > 0){
-        const btnContainer = document.createElement("div");
-        btnContainer.className = "action-btns";
-
-        const attackBtn = document.createElement("button");
-        attackBtn.innerText = "Attack";
-        attackBtn.onclick = (e)=>{
-            e.stopPropagation();
-            attackSingleTurn(selectedKingdoms, k);
-            btnContainer.remove();
-        }
-        btnContainer.appendChild(attackBtn);
-
-        // Only show Alliance button if <2 total allies
-        if(totalAlliancesFormed < 2){
-            const allianceBtn = document.createElement("button");
-            allianceBtn.innerText = "Alliance";
-            allianceBtn.onclick = (e)=>{
-                e.stopPropagation();
-                requestAlliance(k);
-                btnContainer.remove();
-            }
-            btnContainer.appendChild(allianceBtn);
-        }
-
-        div.appendChild(btnContainer);
-        currentActionButtons = btnContainer;
-    }
-}
-
-// Player attacks one enemy
-function attackSingleTurn(attackerKingdoms, defender){
-    attacksThisTurn++;
-
-    let totalAttackPower = 0;
-    attackerKingdoms.forEach(attacker => {
-        let attackRoll = (Math.random()*0.4 + 0.8);
-        totalAttackPower += attacker.troops * attackRoll;
-    });
-
-    let defendRoll = (Math.random()*0.4 + 0.8);
-    if(defender.troops < totalAttackPower){
-        defendRoll += 0.1;
-    }
-    let defendPower = defender.troops * defendRoll;
-
-    addLog("⚔ Battle! Total Attack: "+totalAttackPower.toFixed(1)+" Enemy: "+defendPower.toFixed(1));
-
-    if(totalAttackPower > defendPower){
-        addLog("✅ You conquered the kingdom!");
-        attackerKingdoms.forEach(attacker => {
-            attacker.troops = Math.floor(attacker.troops * 0.6);
-        });
-        defender.owner = "player";
-        defender.troops = Math.floor(totalAttackPower * 0.5);
-    } else {
-        addLog("❌ You lost the battle!");
-        attackerKingdoms.forEach(attacker => {
-            attacker.troops = Math.floor(attacker.troops * 0.5);
-        });
-    }
-
-    selectedKingdoms = [];
-    drawMap();
-    checkWin();
-
-    // If 2 attacks done, auto end turn
-    if(attacksThisTurn >= 2){
-        addLog("✅ You have completed 2 attacks this turn. Turn ends.");
-        endTurn();
-    } else {
-        // After player attack, AI attacks once
-        enemyTurn();
-    }
-
-    updateTurnInfo();
-}
-
-// Player requests alliance
-function requestAlliance(enemyKingdom){
-    if(totalAlliancesFormed >= 2){
-        addLog("⚠ You cannot make more alliances! Already 2 allies.");
         return;
     }
 
-    let chance = Math.random();
-    if(chance <= 0.25){
-        enemyKingdom.owner = "player";
-        totalAlliancesFormed++;
-        addLog("🤝 Alliance successful! Kingdom joined you.");
+    if(selectedKingdoms.length===0) return;
 
-        if(totalAlliancesFormed >= 2){
-            addLog("⚠ You now have 2 allies. No more alliances allowed for the rest of the game.");
-        }
+    const btnBox = document.createElement("div");
+    btnBox.className="action-btns";
+
+    const attackBtn = document.createElement("button");
+    attackBtn.innerText="Attack";
+    attackBtn.onclick=(e)=>{
+        e.stopPropagation();
+        playerAttack(selectedKingdoms,k);
+    };
+
+    btnBox.appendChild(attackBtn);
+
+    let allyCount = kingdoms.filter(x=>x.owner==="ally").length;
+
+    if(allyCount < 2){
+        const allyBtn = document.createElement("button");
+        allyBtn.innerText="Alliance";
+        allyBtn.onclick=(e)=>{
+            e.stopPropagation();
+            requestAlliance(k);
+        };
+        btnBox.appendChild(allyBtn);
+    }
+
+    div.appendChild(btnBox);
+}
+
+/* --- DRAW ARROW --- */
+function drawArrow(from,to){
+    const arrow = document.createElement("div");
+    arrow.className="arrow";
+
+    let x1 = from.x;
+    let y1 = from.y;
+    let x2 = to.x;
+    let y2 = to.y;
+
+    let dx = x2-x1;
+    let dy = y2-y1;
+
+    let length = Math.sqrt(dx*dx+dy*dy);
+    let angle = Math.atan2(dy,dx)*(180/Math.PI);
+
+    arrow.style.width = length+"%";
+    arrow.style.left = x1+"%";
+    arrow.style.top = y1+"%";
+    arrow.style.transform="rotate("+angle+"deg)";
+
+    map.appendChild(arrow);
+
+    setTimeout(()=>arrow.remove(),500);
+}
+
+/* --- PLAYER ATTACK --- */
+function playerAttack(attackers,defender){
+
+    attacksThisTurn++;
+    drawArrow(attackers[0],defender);
+
+    let attackPower = attackers.reduce((sum,a)=>sum+a.troops*(Math.random()*0.4+0.8),0);
+    let defendPower = defender.troops*(Math.random()*0.5+0.8);
+
+    if(attackPower>defendPower){
+        defender.owner="player";
+        defender.troops=Math.floor(attackPower*0.5);
+        addLog("✅ You conquered a kingdom!");
     } else {
-        addLog("❌ Alliance rejected!");
+        addLog("❌ You lost the battle!");
+    }
+
+    selectedKingdoms=[];
+    drawMap();
+    checkWin();
+
+    if(attacksThisTurn>=2){
+        endTurn();
+    } else {
+        aiTurn();
+    }
+
+    updateTurnInfo();
+}
+
+/* --- ALLIANCE --- */
+function requestAlliance(k){
+
+    let allyCount = kingdoms.filter(x=>x.owner==="ally").length;
+    if(allyCount>=2){
+        addLog("⚠ Max 2 allies at a time!");
+        return;
+    }
+
+    if(Math.random()<0.4){
+        k.owner="ally";
+        addLog("🤝 Alliance formed!");
+    } else {
+        addLog("❌ Alliance rejected.");
     }
 
     drawMap();
     updateTurnInfo();
 }
 
-// AI attacks once
-function enemyTurn(){
-    let enemies = kingdoms.filter(k=>k.owner==="enemy");
-    let players = kingdoms.filter(k=>k.owner==="player");
-    if(enemies.length===0 || players.length===0) return;
+/* --- AI TURN (AI attacks AI + player + allies) --- */
+function aiTurn(){
 
-    let enemy = enemies[Math.floor(Math.random()*enemies.length)];
-    let target = players[Math.floor(Math.random()*players.length)];
+    let attackers = kingdoms.filter(k=>k.owner==="enemy");
+    if(attackers.length===0) return;
 
-    let attackPower = enemy.troops * (Math.random()*0.3 + 0.8);
-    let defendPower = target.troops * (Math.random()*0.5 + 0.75);
+    let attacker = attackers[Math.floor(Math.random()*attackers.length)];
 
-    let successChance = 0.4 + (attackPower - defendPower)/100;
-    successChance = Math.min(Math.max(successChance,0.1),0.8);
+    let possibleTargets = kingdoms.filter(k=>k!==attacker);
+    if(possibleTargets.length===0) return;
 
-    addLog("💀 Enemy attacks your kingdom!");
+    let target = possibleTargets[Math.floor(Math.random()*possibleTargets.length)];
 
-    if(Math.random() < successChance){
-        enemy.troops = Math.floor(enemy.troops*0.6);
-        target.owner = "enemy";
-        target.troops = Math.floor(enemy.troops*0.8);
-        addLog("💀 Enemy conquered one of your kingdoms!");
-    } else {
-        enemy.troops = Math.floor(enemy.troops*0.5);
-        addLog("🛡 Your kingdom held!");
+    drawArrow(attacker,target);
+
+    let attackPower = attacker.troops*(Math.random()*0.4+0.8);
+    let defendPower = target.troops*(Math.random()*0.5+0.8);
+
+    if(attackPower>defendPower){
+        attacker.troops=Math.floor(attacker.troops*0.6);
+        target.owner="enemy";
+        target.troops=Math.floor(attackPower*0.6);
+        addLog("💀 AI conquered a kingdom!");
     }
 
     drawMap();
     checkWin();
 }
 
-// Check win condition
-function checkWin(){
-    let playerCount = kingdoms.filter(k=>k.owner==="player").length;
-    let enemyCount = kingdoms.filter(k=>k.owner==="enemy").length;
-
-    if(enemyCount===0){
-        alert("🏆 You conquered the world!");
-    }
-    if(playerCount===0){
-        alert("💀 Your kingdom has fallen!");
-    }
-}
-
-// End turn
+/* --- END TURN --- */
 function endTurn(){
     turn++;
-    startTurn();
-    enemyTurn();
+    attacksThisTurn=0;
+    aiTurn();
+    updateTurnInfo();
 }
 
-// Reset the game
+/* --- WIN CHECK --- */
+function checkWin(){
+    let playerSide = kingdoms.filter(k=>k.owner==="player" || k.owner==="ally");
+    let enemies = kingdoms.filter(k=>k.owner==="enemy");
+
+    if(enemies.length===0){
+        alert("🏆 You conquered the world!");
+    }
+    if(playerSide.length===0){
+        alert("💀 You have fallen!");
+    }
+}
+
+/* --- RESET --- */
 function resetGame(){
     turn=1;
+    attacksThisTurn=0;
     selectedKingdoms=[];
-    attacksThisTurn = 0;
-    totalAlliancesFormed = 0;
     log.innerHTML="<h2>👑 Iron Crown</h2><h3>Battle Log</h3>";
     generateMap();
     drawMap();
-    addLog("Game Reset. New world generated!");
+    updateTurnInfo();
 }
 
-// Add messages to log
-function addLog(text){
-    log.innerHTML += text+"<br>";
-    log.scrollTop=log.scrollHeight;
-}
-
-// Update turn info
-function updateTurnInfo(){
-    turnInfo.innerText = "Turn: "+turn+" | Attacks this turn: "+attacksThisTurn+"/2 | Allies: "+totalAlliancesFormed+"/2";
-}
-
-// Initialize game
+/* --- START --- */
 generateMap();
 drawMap();
 updateTurnInfo();
