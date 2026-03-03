@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - Color Blind Friendly Arrows</title>
+<title>Iron Crown 👑 - Stronger AI</title>
 <style>
   body {
     margin: 0;
@@ -103,12 +103,12 @@ function log(message){
 }
 
 let kingdoms = [];
-let currentTurn = 'player';
 let attacksThisTurn = 0;
 let maxAlliances = 2;
 let allianceRequested = false;
 let arrows = [];
 
+// Place kingdom avoiding overlap
 function placeKingdom(occupied){
   let x,y,valid=false;
   while(!valid){
@@ -122,6 +122,7 @@ function placeKingdom(occupied){
   return {x,y};
 }
 
+// Generate 12 kingdoms
 for(let i=1;i<=12;i++){
   let owner = i===1 ? 'player' : 'enemy';
   let pos = placeKingdom(kingdoms);
@@ -139,7 +140,6 @@ for(let i=1;i<=12;i++){
 function drawArrows(){
   ctx.clearRect(0,0,arrowCanvas.width,arrowCanvas.height);
   arrows.forEach(a=>{
-    // Main line
     ctx.beginPath();
     ctx.moveTo(a.fromX+25, a.fromY+25);
     ctx.lineTo(a.toX+25, a.toY+25);
@@ -150,7 +150,7 @@ function drawArrows(){
     let angle = Math.atan2(a.toY - a.fromY, a.toX - a.fromX);
     let headlen = 10;
 
-    // Left side
+    // Left
     ctx.beginPath();
     ctx.moveTo(a.toX+25, a.toY+25);
     ctx.lineTo(a.toX+25 - headlen * Math.cos(angle - Math.PI/6), 
@@ -158,7 +158,7 @@ function drawArrows(){
     ctx.strokeStyle = a.type==='ai' ? 'orange' : 'white';
     ctx.stroke();
 
-    // Right side
+    // Right
     ctx.beginPath();
     ctx.moveTo(a.toX+25, a.toY+25);
     ctx.lineTo(a.toX+25 - headlen * Math.cos(angle + Math.PI/6), 
@@ -204,8 +204,6 @@ function renderKingdoms(){
 
 function selectKingdom(k,element){
   document.querySelectorAll('.actionButton').forEach(b=>b.remove());
-  if(currentTurn!=='player') return;
-
   if(k.owner==='player'||k.owner==='ally'){
     if(k.owner!=='retreated' && k.id!==1){
       const retreatBtn = document.createElement('button');
@@ -277,41 +275,49 @@ function attackKingdom(k){
   if(attacksThisTurn>=2) endTurn();
 }
 
+// AI attacks smarter and immediately
 function aiTurn(){
   const aiKingdoms = kingdoms.filter(k=>k.owner==='enemy');
-  const playerKingdoms = kingdoms.filter(k=>k.owner==='player');
+  let playerKingdoms = kingdoms.filter(k=>k.owner==='player');
   if(aiKingdoms.length===0 || playerKingdoms.length===0) return;
 
-  const attacker = aiKingdoms[getRandomInt(0, aiKingdoms.length-1)];
-  const target = playerKingdoms[getRandomInt(0, playerKingdoms.length-1)];
+  let attacks = 0;
+  const maxAttacks = 2;
 
-  arrows.push({fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, type:'ai'});
-  drawArrows();
-  setTimeout(()=>{ arrows.shift(); drawArrows(); },1500);
+  while(attacks < maxAttacks && playerKingdoms.length>0){
+    const attacker = aiKingdoms[getRandomInt(0, aiKingdoms.length-1)];
+    playerKingdoms.sort((a,b)=>a.troops - b.troops); // weakest first
+    const target = playerKingdoms[0];
 
-  const successChance = attacker.troops / (attacker.troops + target.troops);
+    arrows.push({fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, type:'ai'});
+    drawArrows();
+    setTimeout(()=>{ arrows.shift(); drawArrows(); },1500);
 
-  if(Math.random() < successChance){
-    target.owner='enemy';
-    log(`AI conquered your kingdom ${target.id} (AI troops: ${attacker.troops}, Your troops: ${target.troops})`);
-  } else {
-    log(`AI attack failed on your kingdom ${target.id} (AI troops: ${attacker.troops}, Your troops: ${target.troops})`);
+    const successChance = attacker.troops / (attacker.troops + target.troops);
+    if(Math.random() < successChance){
+      target.owner='enemy';
+      log(`AI conquered your kingdom ${target.id} (AI troops: ${attacker.troops}, Your troops: ${target.troops})`);
+      playerKingdoms.splice(0,1);
+    } else {
+      log(`AI attack failed on your kingdom ${target.id} (AI troops: ${attacker.troops}, Your troops: ${target.troops})`);
+    }
+    attacks++;
   }
 }
 
+// End turn and immediately trigger AI
 function endTurn(){
   attacksThisTurn=0;
   allianceRequested=false;
-  currentTurn=currentTurn==='player'?'ai':'player';
-  log(`Turn ended. Now it's ${currentTurn}'s turn.`);
-  if(currentTurn==='ai'){ 
-    aiTurn(); 
-    currentTurn='player'; 
-    log('Your turn.');
-    renderKingdoms(); 
-  }
+  log(`Turn ended. AI is taking its turn.`);
+  
+  aiTurn();
+
+  log('Your turn.');
+  renderKingdoms();
 }
 
+// Initial render
 renderKingdoms();
 </script>
 </body>
