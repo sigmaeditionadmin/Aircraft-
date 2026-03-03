@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - Retreat & Battle Fix</title>
+<title>Iron Crown 👑 - Updated</title>
 <style>
   body {
     margin: 0;
@@ -199,7 +199,7 @@ function selectKingdom(k,element){
   if(currentTurn!=='player') return;
 
   if(k.owner==='player'||k.owner==='ally'){
-    if(k.owner!=='retreated' && k.id!==1){ // can retreat
+    if(k.owner!=='retreated' && k.id!==1){
       const retreatBtn = document.createElement('button');
       retreatBtn.className='actionButton';
       retreatBtn.style.left = k.x+'px';
@@ -211,7 +211,6 @@ function selectKingdom(k,element){
     return;
   }
 
-  // Enemy kingdom
   if(!allianceRequested && kingdoms.filter(kk=>kk.owner==='ally').length<maxAlliances){
     const allianceBtn = document.createElement('button');
     allianceBtn.className='actionButton';
@@ -252,9 +251,9 @@ function attackKingdom(k){
   const attackers = kingdoms.filter(kk=>kk.owner==='player'||kk.owner==='ally');
   const fromKingdom = attackers[0];
   arrows.push({fromX:fromKingdom.x, fromY:fromKingdom.y, toX:k.x, toY:k.y});
+  drawArrows();
   setTimeout(()=>{ arrows.shift(); drawArrows(); },1500);
 
-  // Success based on troops
   const totalAttackers = attackers.reduce((sum, a)=>sum+a.troops, 0);
   const successChance = totalAttackers / (totalAttackers + k.troops);
 
@@ -278,7 +277,11 @@ function aiTurn(){
   const attacker = aiKingdoms[getRandomInt(0, aiKingdoms.length-1)];
   const target = playerKingdoms[getRandomInt(0, playerKingdoms.length-1)];
 
-  // Troop-based success
+  // Draw arrow
+  arrows.push({fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y});
+  drawArrows();
+  setTimeout(()=>{ arrows.shift(); drawArrows(); },1500);
+
   const successChance = attacker.troops / (attacker.troops + target.troops);
 
   if(Math.random() < successChance){
