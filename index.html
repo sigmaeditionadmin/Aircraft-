@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - Retreat to Home</title>
+<title>Iron Crown 👑 - Retreat Fix</title>
 <style>
   body {
     margin: 0;
@@ -81,7 +81,7 @@ const arrowCanvas = document.getElementById('arrowCanvas');
 const statsContent = document.getElementById('statsContent');
 const ctx = arrowCanvas.getContext('2d');
 
-let containerWidth = window.innerWidth - 500; // battle log + stats bar
+let containerWidth = window.innerWidth - 500; // 250 log + 250 stats
 let containerHeight = window.innerHeight;
 
 arrowCanvas.width = containerWidth;
@@ -104,7 +104,6 @@ function log(message){
   battleLog.scrollTop = battleLog.scrollHeight;
 }
 
-// Kingdoms
 let kingdoms = [];
 let currentTurn = 'player';
 let attacksThisTurn = 0;
@@ -233,14 +232,12 @@ function selectKingdom(k,element){
 }
 
 function retreatKingdom(k){
-  const home = kingdoms.find(h=>h.id===1);
+  const home = kingdoms.find(h => h.id === 1);
   // Transfer troops to home kingdom
   home.troops += k.troops;
   k.troops = 0;
-  k.owner = 'retreated';
-  k.x = home.x;
-  k.y = home.y;
-  log(`Kingdom ${k.id} retreated to home kingdom. Troops added to home.`);
+  k.owner = 'retreated'; // greyed out
+  log(`Kingdom ${k.id} retreated. Troops added to home kingdom ${home.id}.`);
   renderKingdoms();
 }
 
@@ -290,7 +287,6 @@ function endTurn(){
 
 // Initial render
 renderKingdoms();
-
 </script>
 </body>
 </html>
