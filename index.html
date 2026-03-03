@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - Green Map with Stats</title>
+<title>Iron Crown 👑 - Green Map with Stats & Retreat</title>
 <style>
   body {
     margin: 0;
@@ -181,7 +181,20 @@ function renderKingdoms(){
 function selectKingdom(k,element){
   document.querySelectorAll('.actionButton').forEach(b=>b.remove());
   if(currentTurn!=='player') return;
-  if(k.owner==='player'||k.owner==='ally'){ log(`Selected kingdom ${k.id}`); return; }
+  if(k.owner==='player'||k.owner==='ally'){
+    log(`Selected kingdom ${k.id}`);
+    // Add Retreat button
+    if(k.id!==1){ // cannot retreat home kingdom
+      const retreatBtn=document.createElement('button');
+      retreatBtn.className='actionButton';
+      retreatBtn.style.left=k.x+'px';
+      retreatBtn.style.top=(k.y-90)+'px';
+      retreatBtn.textContent='Retreat Home';
+      retreatBtn.onclick=()=>retreatKingdom(k);
+      gameContainer.appendChild(retreatBtn);
+    }
+    return;
+  }
   if(!allianceRequested && kingdoms.filter(kk=>kk.owner==='ally').length<maxAlliances){
     const allianceBtn=document.createElement('button');
     allianceBtn.className='actionButton';
@@ -198,6 +211,15 @@ function selectKingdom(k,element){
   attackBtn.textContent='Attack';
   attackBtn.onclick=()=>attackKingdom(k);
   gameContainer.appendChild(attackBtn);
+}
+
+function retreatKingdom(k){
+  const home=kingdoms.find(h=>h.id===1);
+  k.x=home.x;
+  k.y=home.y;
+  k.troops=Math.max(10,Math.floor(k.troops/2));
+  log(`Kingdom ${k.id} retreated to home kingdom, losing half its troops.`);
+  renderKingdoms();
 }
 
 function requestAlliance(k){
