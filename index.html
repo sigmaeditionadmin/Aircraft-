@@ -96,13 +96,11 @@ function drawArrows(){
   arrows = arrows.filter(a => now - a.timestamp < 1500); // auto-remove after 1.5s
 
   arrows.forEach(a => {
-    // vector from attacker to target
     let dx = a.toX - a.fromX;
     let dy = a.toY - a.fromY;
     let distance = Math.hypot(dx, dy);
-    let padding = 25; // stop before kingdom edge
+    let padding = 25;
     let ratio = (distance - padding)/distance;
-
     let endX = a.fromX + dx*ratio + 25;
     let endY = a.fromY + dy*ratio + 25;
 
@@ -113,15 +111,12 @@ function drawArrows(){
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // arrowhead
     let angle = Math.atan2(endY - (a.fromY+25), endX - (a.fromX+25));
     let headlen = 12;
     ctx.beginPath();
     ctx.moveTo(endX, endY);
-    ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI/6), 
-               endY - headlen * Math.sin(angle - Math.PI/6));
-    ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI/6), 
-               endY - headlen * Math.sin(angle + Math.PI/6));
+    ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI/6), endY - headlen * Math.sin(angle - Math.PI/6));
+    ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI/6), endY - headlen * Math.sin(angle + Math.PI/6));
     ctx.closePath();
     ctx.fillStyle = a.type==='ai' ? 'orange' : 'white';
     ctx.fill();
@@ -176,7 +171,10 @@ function selectKingdom(k,element){
     allianceBtn.style.left = k.x+'px';
     allianceBtn.style.top = (k.y-30)+'px';
     allianceBtn.textContent='Alliance';
-    allianceBtn.onclick = ()=>requestAlliance(k);
+    allianceBtn.onclick = () => {
+      document.querySelectorAll('.actionButton').forEach(b => b.remove()); // remove immediately
+      requestAlliance(k);
+    };
     gameContainer.appendChild(allianceBtn);
   }
 
@@ -185,7 +183,10 @@ function selectKingdom(k,element){
   attackBtn.style.left = k.x+'px';
   attackBtn.style.top = (k.y-60)+'px';
   attackBtn.textContent='Attack';
-  attackBtn.onclick = ()=>attackKingdom(k);
+  attackBtn.onclick = () => {
+    document.querySelectorAll('.actionButton').forEach(b => b.remove()); // remove immediately
+    attackKingdom(k);
+  };
   gameContainer.appendChild(attackBtn);
 }
 
@@ -266,7 +267,7 @@ function endTurn(){
 
 resetButton.onclick = ()=>initializeGame();
 
-// Main loop to redraw arrows and kingdoms
+// Main loop to redraw arrows continuously
 function gameLoop(){
   drawArrows();
   requestAnimationFrame(gameLoop);
