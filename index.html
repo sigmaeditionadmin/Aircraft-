@@ -5,10 +5,14 @@
 
 <style>
 body{
-  background:#111;
+  background:#0f0f0f;
   color:white;
   font-family:Arial;
   text-align:center;
+}
+
+h1{
+  margin-bottom:10px;
 }
 
 #map{
@@ -16,27 +20,32 @@ body{
   width:900px;
   height:550px;
   margin:auto;
-  background:#1e1e1e;
-  border:3px solid #555;
+  background:#1a1a1a;
+  border:4px solid #666;
+  border-radius:10px;
   overflow:hidden;
 }
 
 .kingdom{
   position:absolute;
-  width:60px;
-  height:60px;
+  width:70px;
+  height:70px;
   border-radius:50%;
   text-align:center;
-  line-height:20px;
-  padding-top:8px;
-  font-size:12px;
+  padding-top:10px;
+  font-size:13px;
   cursor:pointer;
   z-index:2;
+  transition:0.2s;
 }
 
-.player{background:green;}
-.enemy{background:crimson;}
-.ally{background:royalblue;}
+.kingdom:hover{
+  transform:scale(1.05);
+}
+
+.player{ background:#1f8f1f; }
+.enemy{ background:#b22222; }
+.ally{ background:#2e6cff; }
 
 .arrow-layer{
   position:absolute;
@@ -55,29 +64,33 @@ body{
 }
 
 @keyframes fadeArrow{
-  0%{opacity:1;}
-  100%{opacity:0;}
+  from{opacity:1;}
+  to{opacity:0;}
 }
 
 .action-btns{
   position:absolute;
-  top:-35px;
-  left:-20px;
+  top:-40px;
+  left:-25px;
   z-index:5;
 }
 
 button{
   margin:2px;
-  cursor:pointer;
+  padding:3px 6px;
 }
 
 #log{
-  height:120px;
+  width:900px;
+  margin:auto;
+  margin-top:10px;
+  height:130px;
   overflow-y:auto;
   background:#222;
-  margin-top:10px;
-  padding:5px;
-  border:1px solid #555;
+  border-radius:6px;
+  padding:6px;
+  border:1px solid #444;
+  font-size:14px;
 }
 </style>
 </head>
@@ -103,203 +116,189 @@ const map=document.getElementById("map");
 const log=document.getElementById("log");
 
 let kingdoms=[];
-let selectedKingdoms=[];
+let selected=[];
+const MAX_ALLIES=2;
 
-function addLog(text){
-  log.innerHTML+=text+"<br>";
+function logMsg(t){
+  log.innerHTML+=t+"<br>";
   log.scrollTop=log.scrollHeight;
 }
 
-function randomPosition(){
-  let valid=false;
-  let x,y;
+function randomPos(){
+  let x,y,valid=false;
   while(!valid){
     x=Math.random()*85+5;
     y=Math.random()*85+5;
     valid=true;
     for(let k of kingdoms){
-      if(Math.hypot(k.x-x,k.y-y)<10) valid=false;
+      if(Math.hypot(k.x-x,k.y-y)<12) valid=false;
     }
   }
   return {x,y};
 }
 
-function createKingdom(owner,troops){
-  const pos=randomPosition();
-  kingdoms.push({owner,troops,x:pos.x,y:pos.y});
+function create(owner,troops){
+  const p=randomPos();
+  kingdoms.push({owner,troops,x:p.x,y:p.y});
 }
 
 function init(){
   kingdoms=[];
-  selectedKingdoms=[];
-  createKingdom("player",45);
+  selected=[];
+  create("player",50); // GUARANTEED GREEN
   for(let i=0;i<6;i++){
-    createKingdom("enemy",30+Math.floor(Math.random()*20));
+    create("enemy",30+Math.floor(Math.random()*20));
   }
-  drawMap();
+  draw();
 }
 
-function drawMap(){
+function draw(){
   map.querySelectorAll(".kingdom").forEach(e=>e.remove());
 
   kingdoms.forEach(k=>{
-    const div=document.createElement("div");
-    div.className="kingdom "+k.owner;
-    div.style.left=k.x+"%";
-    div.style.top=k.y+"%";
-    div.innerHTML="🏰<br>"+k.troops;
-    div.onclick=()=>handleClick(k,div);
-    map.appendChild(div);
+    const d=document.createElement("div");
+    d.className="kingdom "+k.owner;
+    d.style.left=k.x+"%";
+    d.style.top=k.y+"%";
+    d.innerHTML="🏰<br>"+k.troops;
+    d.onclick=()=>clickKingdom(k,d);
+    map.appendChild(d);
   });
 
-  highlightSelected();
+  highlight();
 }
 
-function highlightSelected(){
+function highlight(){
   document.querySelectorAll(".kingdom").forEach(d=>d.style.boxShadow="none");
-  selectedKingdoms.forEach(k=>{
+  selected.forEach(k=>{
     const match=[...document.querySelectorAll(".kingdom")]
-      .find(d=>parseFloat(d.style.left)===k.x && parseFloat(d.style.top)===k.y);
-    if(match) match.style.boxShadow="0 0 15px 4px yellow";
+      .find(d=>parseFloat(d.style.left)==k.x && parseFloat(d.style.top)==k.y);
+    if(match) match.style.boxShadow="0 0 18px yellow";
   });
 }
 
-function handleClick(k,div){
+function clickKingdom(k,div){
 
   if(k.owner==="player"||k.owner==="ally"){
-    if(selectedKingdoms.includes(k)){
-      selectedKingdoms=selectedKingdoms.filter(x=>x!==k);
-      addLog("Deselected kingdom with "+k.troops+" troops.");
+    if(selected.includes(k)){
+      selected=selected.filter(x=>x!==k);
+      logMsg("Deselected kingdom with "+k.troops+" troops.");
     }else{
-      selectedKingdoms.push(k);
-      addLog("Selected kingdom with "+k.troops+" troops.");
+      selected.push(k);
+      logMsg("Selected kingdom with "+k.troops+" troops.");
     }
-    drawMap();
+    draw();
     return;
   }
 
-  if(selectedKingdoms.length===0) return;
+  if(selected.length===0) return;
 
   const box=document.createElement("div");
   box.className="action-btns";
 
-  const attackBtn=document.createElement("button");
-  attackBtn.innerText="Attack";
-  attackBtn.onclick=(e)=>{e.stopPropagation();playerAttack(selectedKingdoms,k);};
-  box.appendChild(attackBtn);
+  const atk=document.createElement("button");
+  atk.innerText="Attack";
+  atk.onclick=(e)=>{e.stopPropagation();playerAttack(k);};
+  box.appendChild(atk);
 
-  const spyBtn=document.createElement("button");
-  spyBtn.innerText="Spy";
-  spyBtn.onclick=(e)=>{e.stopPropagation();sendSpy(selectedKingdoms[0],k);};
-  box.appendChild(spyBtn);
+  const spy=document.createElement("button");
+  spy.innerText="Spy";
+  spy.onclick=(e)=>{e.stopPropagation();spyOn(k);};
+  box.appendChild(spy);
 
-  let allyCount=kingdoms.filter(x=>x.owner==="ally").length;
-  if(allyCount<2){
-    const allyBtn=document.createElement("button");
-    allyBtn.innerText="Alliance";
-    allyBtn.onclick=(e)=>{e.stopPropagation();requestAlliance(k);};
-    box.appendChild(allyBtn);
+  if(kingdoms.filter(x=>x.owner==="ally").length<MAX_ALLIES){
+    const ally=document.createElement("button");
+    ally.innerText="Alliance";
+    ally.onclick=(e)=>{e.stopPropagation();allyWith(k);};
+    box.appendChild(ally);
   }
 
   div.appendChild(box);
 }
 
-function drawArrow(from,to){
+function arrow(a,b){
   const svg=document.getElementById("arrowLayer");
-  const rect=map.getBoundingClientRect();
-
-  const x1=from.x/100*rect.width;
-  const y1=from.y/100*rect.height;
-  const x2=to.x/100*rect.width;
-  const y2=to.y/100*rect.height;
+  const r=map.getBoundingClientRect();
 
   const line=document.createElementNS("http://www.w3.org/2000/svg","line");
-  line.setAttribute("x1",x1);
-  line.setAttribute("y1",y1);
-  line.setAttribute("x2",x2);
-  line.setAttribute("y2",y2);
+  line.setAttribute("x1",a.x/100*r.width);
+  line.setAttribute("y1",a.y/100*r.height);
+  line.setAttribute("x2",b.x/100*r.width);
+  line.setAttribute("y2",b.y/100*r.height);
   line.setAttribute("class","attack-arrow");
   svg.appendChild(line);
-
   setTimeout(()=>line.remove(),1000);
 }
 
-function playerAttack(attackerList,target){
-  attackerList.forEach(attacker=>{
-    if(attacker.troops<=1) return;
+function playerAttack(target){
+  selected.forEach(att=>{
+    if(att.troops<=1) return;
 
-    drawArrow(attacker,target);
+    arrow(att,target);
 
-    const attack=Math.floor(attacker.troops*(0.4+Math.random()*0.4));
-    const defense=Math.floor(target.troops*(0.3+Math.random()*0.4));
+    const atk=Math.floor(att.troops*(0.4+Math.random()*0.4));
+    const def=Math.floor(target.troops*(0.3+Math.random()*0.4));
 
-    if(attack>defense){
-      addLog("⚔ Victory! "+attack+" vs "+defense);
-      target.owner=attacker.owner;
-      target.troops=Math.floor(attacker.troops/2);
+    if(atk>def){
+      logMsg("⚔ You conquered a kingdom!");
+      target.owner=att.owner;
+      target.troops=Math.floor(att.troops/2);
     }else{
-      addLog("🛡 Defeat! "+attack+" vs "+defense);
+      logMsg("🛡 Attack failed.");
     }
 
-    attacker.troops=Math.max(1,Math.floor(attacker.troops/2));
+    att.troops=Math.max(1,Math.floor(att.troops/2));
   });
 
-  removeDead();
-  selectedKingdoms=[];
-  drawMap();
+  selected=[];
+  clean();
+  draw();
   setTimeout(aiTurn,1000);
 }
 
 function aiTurn(){
-
-  let aiKingdoms=kingdoms.filter(k=>k.owner!=="player"&&k.owner!=="ally");
-
-  aiKingdoms.forEach(ai=>{
-    if(ai.troops<=1) return;
-
-    let targets=kingdoms.filter(k=>k!==ai);
+  const ai=kingdoms.filter(k=>k.owner==="enemy");
+  ai.forEach(a=>{
+    if(a.troops<=1) return;
+    const targets=kingdoms.filter(k=>k!==a);
     if(targets.length===0) return;
 
-    let target=targets[Math.floor(Math.random()*targets.length)];
+    const t=targets[Math.floor(Math.random()*targets.length)];
 
-    drawArrow(ai,target);
+    arrow(a,t);
 
-    const attack=Math.floor(ai.troops*(0.4+Math.random()*0.4));
-    const defense=Math.floor(target.troops*(0.3+Math.random()*0.4));
+    const atk=Math.floor(a.troops*(0.4+Math.random()*0.4));
+    const def=Math.floor(t.troops*(0.3+Math.random()*0.4));
 
-    if(attack>defense){
-      addLog("⚔ AI conquered a kingdom!");
-      target.owner=ai.owner;
-      target.troops=Math.floor(ai.troops/2);
-    }else{
-      addLog("🛡 AI attack failed.");
+    if(atk>def){
+      t.owner="enemy";
+      t.troops=Math.floor(a.troops/2);
+      logMsg("⚔ AI conquered a kingdom!");
     }
 
-    ai.troops=Math.max(1,Math.floor(ai.troops/2));
+    a.troops=Math.max(1,Math.floor(a.troops/2));
   });
 
-  removeDead();
-  drawMap();
+  clean();
+  draw();
 }
 
-function requestAlliance(target){
+function allyWith(t){
   if(Math.random()<0.5){
-    target.owner="ally";
-    addLog("🤝 Alliance formed!");
+    t.owner="ally";
+    logMsg("🤝 Alliance formed!");
   }else{
-    addLog("Alliance rejected!");
+    logMsg("Alliance rejected.");
   }
-  drawMap();
+  draw();
 }
 
-function sendSpy(from,target){
-  addLog("🕵 Spy sent...");
-  setTimeout(()=>{
-    addLog("Spy report: "+target.troops+" troops.");
-  },500);
+function spyOn(t){
+  logMsg("🕵 Spy sent...");
+  setTimeout(()=>logMsg("Spy report: "+t.troops+" troops."),500);
 }
 
-function removeDead(){
+function clean(){
   kingdoms=kingdoms.filter(k=>k.troops>0);
 }
 
