@@ -57,7 +57,7 @@ body {
     position:absolute;
     display:flex;
     gap:5px;
-    top:-40px;
+    top:-45px;
     left:0;
 }
 .action-btns button {
@@ -65,12 +65,14 @@ body {
     font-size:10px;
 }
 
-/* Arrow line */
 .arrow {
     position:absolute;
     height:3px;
     background:white;
     transform-origin:0 0;
+}
+.spyArrow {
+    background:gray;
 }
 </style>
 </head>
@@ -94,6 +96,7 @@ let kingdoms = [];
 let selectedKingdoms = [];
 let turn = 1;
 let attacksThisTurn = 0;
+let spiesThisTurn = 0;
 
 const map = document.getElementById("map");
 const log = document.getElementById("log");
@@ -106,27 +109,29 @@ function addLog(text){
 
 function updateTurnInfo(){
     let allyCount = kingdoms.filter(k=>k.owner==="ally").length;
-    turnInfo.innerText = "Turn: "+turn+" | Attacks: "+attacksThisTurn+"/2 | Allies: "+allyCount+"/2";
+    turnInfo.innerText =
+        "Turn: "+turn+
+        " | Attacks: "+attacksThisTurn+"/2"+
+        " | Spies: "+spiesThisTurn+"/1"+
+        " | Allies: "+allyCount+"/2";
 }
 
-/* --- SAFE SPAWN (no overlapping) --- */
+/* SAFE SPAWN */
 function generateMap(){
     kingdoms = [];
     const minDistance = 12;
 
     for(let i=0;i<12;i++){
         let x,y,valid;
-
         do{
-            valid = true;
-            x = Math.random()*80;
-            y = Math.random()*80;
-
+            valid=true;
+            x=Math.random()*80;
+            y=Math.random()*80;
             for(let k of kingdoms){
-                let dx = k.x - x;
-                let dy = k.y - y;
-                if(Math.sqrt(dx*dx + dy*dy) < minDistance){
-                    valid = false;
+                let dx=k.x-x;
+                let dy=k.y-y;
+                if(Math.sqrt(dx*dx+dy*dy)<minDistance){
+                    valid=false;
                     break;
                 }
             }
@@ -137,33 +142,31 @@ function generateMap(){
             x:x,
             y:y,
             troops:30+Math.floor(Math.random()*20),
-            owner: i===0 ? "player" : "enemy"
+            owner:i===0?"player":"enemy"
         });
     }
 }
 
-/* --- DRAW MAP --- */
+/* DRAW MAP */
 function drawMap(){
     map.innerHTML="";
     kingdoms.forEach(k=>{
-        const div = document.createElement("div");
-        div.className = "kingdom " + k.owner;
-        div.style.left = k.x+"%";
-        div.style.top = k.y+"%";
+        const div=document.createElement("div");
+        div.className="kingdom "+k.owner;
+        div.style.left=k.x+"%";
+        div.style.top=k.y+"%";
         div.innerHTML="🏰<br>"+k.troops;
-
-        div.onclick = ()=>handleClick(k,div);
-
+        div.onclick=()=>handleClick(k,div);
         map.appendChild(div);
     });
 }
 
-/* --- CLICK --- */
+/* CLICK */
 function handleClick(k,div){
 
     if(k.owner==="player" || k.owner==="ally"){
         if(selectedKingdoms.includes(k)){
-            selectedKingdoms = selectedKingdoms.filter(x=>x!==k);
+            selectedKingdoms=selectedKingdoms.filter(x=>x!==k);
         } else {
             selectedKingdoms.push(k);
         }
@@ -173,67 +176,57 @@ function handleClick(k,div){
 
     if(selectedKingdoms.length===0) return;
 
-    const btnBox = document.createElement("div");
-    btnBox.className="action-btns";
+    const box=document.createElement("div");
+    box.className="action-btns";
 
-    const attackBtn = document.createElement("button");
+    const attackBtn=document.createElement("button");
     attackBtn.innerText="Attack";
-    attackBtn.onclick=(e)=>{
-        e.stopPropagation();
-        playerAttack(selectedKingdoms,k);
-    };
+    attackBtn.onclick=(e)=>{e.stopPropagation();playerAttack(selectedKingdoms,k);};
+    box.appendChild(attackBtn);
 
-    btnBox.appendChild(attackBtn);
+    const spyBtn=document.createElement("button");
+    spyBtn.innerText="Spy";
+    spyBtn.onclick=(e)=>{e.stopPropagation();sendSpy(selectedKingdoms[0],k);};
+    box.appendChild(spyBtn);
 
-    let allyCount = kingdoms.filter(x=>x.owner==="ally").length;
-
-    if(allyCount < 2){
-        const allyBtn = document.createElement("button");
+    let allyCount=kingdoms.filter(x=>x.owner==="ally").length;
+    if(allyCount<2){
+        const allyBtn=document.createElement("button");
         allyBtn.innerText="Alliance";
-        allyBtn.onclick=(e)=>{
-            e.stopPropagation();
-            requestAlliance(k);
-        };
-        btnBox.appendChild(allyBtn);
+        allyBtn.onclick=(e)=>{e.stopPropagation();requestAlliance(k);};
+        box.appendChild(allyBtn);
     }
 
-    div.appendChild(btnBox);
+    div.appendChild(box);
 }
 
-/* --- DRAW ARROW --- */
-function drawArrow(from,to){
-    const arrow = document.createElement("div");
+/* ARROW */
+function drawArrow(from,to,type="attack"){
+    const arrow=document.createElement("div");
     arrow.className="arrow";
+    if(type==="spy") arrow.classList.add("spyArrow");
 
-    let x1 = from.x;
-    let y1 = from.y;
-    let x2 = to.x;
-    let y2 = to.y;
+    let dx=to.x-from.x;
+    let dy=to.y-from.y;
+    let length=Math.sqrt(dx*dx+dy*dy);
+    let angle=Math.atan2(dy,dx)*(180/Math.PI);
 
-    let dx = x2-x1;
-    let dy = y2-y1;
-
-    let length = Math.sqrt(dx*dx+dy*dy);
-    let angle = Math.atan2(dy,dx)*(180/Math.PI);
-
-    arrow.style.width = length+"%";
-    arrow.style.left = x1+"%";
-    arrow.style.top = y1+"%";
+    arrow.style.width=length+"%";
+    arrow.style.left=from.x+"%";
+    arrow.style.top=from.y+"%";
     arrow.style.transform="rotate("+angle+"deg)";
 
     map.appendChild(arrow);
-
     setTimeout(()=>arrow.remove(),500);
 }
 
-/* --- PLAYER ATTACK --- */
+/* PLAYER ATTACK */
 function playerAttack(attackers,defender){
-
     attacksThisTurn++;
     drawArrow(attackers[0],defender);
 
-    let attackPower = attackers.reduce((sum,a)=>sum+a.troops*(Math.random()*0.4+0.8),0);
-    let defendPower = defender.troops*(Math.random()*0.5+0.8);
+    let attackPower=attackers.reduce((s,a)=>s+a.troops*(Math.random()*0.4+0.8),0);
+    let defendPower=defender.troops*(Math.random()*0.5+0.8);
 
     if(attackPower>defendPower){
         defender.owner="player";
@@ -247,19 +240,42 @@ function playerAttack(attackers,defender){
     drawMap();
     checkWin();
 
-    if(attacksThisTurn>=2){
-        endTurn();
-    } else {
-        aiTurn();
-    }
+    if(attacksThisTurn>=2) endTurn();
+    else aiTurn();
 
     updateTurnInfo();
 }
 
-/* --- ALLIANCE --- */
-function requestAlliance(k){
+/* SPY */
+function sendSpy(from,target){
+    if(spiesThisTurn>=1){
+        addLog("⚠ Only 1 spy per turn!");
+        return;
+    }
 
-    let allyCount = kingdoms.filter(x=>x.owner==="ally").length;
+    spiesThisTurn++;
+    drawArrow(from,target,"spy");
+
+    if(Math.random()<0.6){
+        addLog("🕵️ Spy success! Enemy has "+target.troops+" troops.");
+
+        if(Math.random()<0.3){
+            target.troops=Math.max(5,target.troops-10);
+            addLog("💣 Sabotage! Enemy lost troops.");
+        }
+
+    } else {
+        target.troops+=5;
+        addLog("💀 Spy caught! Enemy strengthened.");
+    }
+
+    drawMap();
+    updateTurnInfo();
+}
+
+/* ALLIANCE */
+function requestAlliance(k){
+    let allyCount=kingdoms.filter(x=>x.owner==="ally").length;
     if(allyCount>=2){
         addLog("⚠ Max 2 allies at a time!");
         return;
@@ -276,23 +292,20 @@ function requestAlliance(k){
     updateTurnInfo();
 }
 
-/* --- AI TURN (AI attacks AI + player + allies) --- */
+/* AI TURN */
 function aiTurn(){
+    let enemies=kingdoms.filter(k=>k.owner==="enemy");
+    if(enemies.length===0) return;
 
-    let attackers = kingdoms.filter(k=>k.owner==="enemy");
-    if(attackers.length===0) return;
+    let attacker=enemies[Math.floor(Math.random()*enemies.length)];
+    let targets=kingdoms.filter(k=>k!==attacker);
+    if(targets.length===0) return;
 
-    let attacker = attackers[Math.floor(Math.random()*attackers.length)];
-
-    let possibleTargets = kingdoms.filter(k=>k!==attacker);
-    if(possibleTargets.length===0) return;
-
-    let target = possibleTargets[Math.floor(Math.random()*possibleTargets.length)];
-
+    let target=targets[Math.floor(Math.random()*targets.length)];
     drawArrow(attacker,target);
 
-    let attackPower = attacker.troops*(Math.random()*0.4+0.8);
-    let defendPower = target.troops*(Math.random()*0.5+0.8);
+    let attackPower=attacker.troops*(Math.random()*0.4+0.8);
+    let defendPower=target.troops*(Math.random()*0.5+0.8);
 
     if(attackPower>defendPower){
         attacker.troops=Math.floor(attacker.troops*0.6);
@@ -305,31 +318,29 @@ function aiTurn(){
     checkWin();
 }
 
-/* --- END TURN --- */
+/* END TURN */
 function endTurn(){
     turn++;
     attacksThisTurn=0;
+    spiesThisTurn=0;
     aiTurn();
     updateTurnInfo();
 }
 
-/* --- WIN CHECK --- */
+/* WIN */
 function checkWin(){
-    let playerSide = kingdoms.filter(k=>k.owner==="player" || k.owner==="ally");
-    let enemies = kingdoms.filter(k=>k.owner==="enemy");
+    let playerSide=kingdoms.filter(k=>k.owner==="player"||k.owner==="ally");
+    let enemies=kingdoms.filter(k=>k.owner==="enemy");
 
-    if(enemies.length===0){
-        alert("🏆 You conquered the world!");
-    }
-    if(playerSide.length===0){
-        alert("💀 You have fallen!");
-    }
+    if(enemies.length===0) alert("🏆 You conquered the world!");
+    if(playerSide.length===0) alert("💀 You have fallen!");
 }
 
-/* --- RESET --- */
+/* RESET */
 function resetGame(){
     turn=1;
     attacksThisTurn=0;
+    spiesThisTurn=0;
     selectedKingdoms=[];
     log.innerHTML="<h2>👑 Iron Crown</h2><h3>Battle Log</h3>";
     generateMap();
@@ -337,7 +348,6 @@ function resetGame(){
     updateTurnInfo();
 }
 
-/* --- START --- */
 generateMap();
 drawMap();
 updateTurnInfo();
