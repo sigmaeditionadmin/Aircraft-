@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>Modern Warfare – Global Conflict</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <style>
 body {
     margin: 0;
@@ -12,41 +16,14 @@ body {
     overflow: hidden;
 }
 
-#topBar {
-    background: #111;
-    padding: 10px;
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 2px solid #333;
-}
-
 #gameContainer {
     display: flex;
-    height: calc(100vh - 50px);
-}
-
-#mapContainer {
-    flex: 3;
-    overflow: hidden;
-    position: relative;
-    background: #0f141a;
+    height: 100vh;
 }
 
 #map {
-    transform-origin: 0 0;
-    transition: transform 0.2s;
-    cursor: grab;
+    flex: 3;
 }
-
-.country {
-    stroke: #000;
-    stroke-width: 1;
-    cursor: pointer;
-}
-
-.player { fill: #2ecc71; }
-.ai { fill: #e74c3c; }
-.neutral { fill: #7f8c8d; }
 
 #sidePanel {
     flex: 1;
@@ -80,28 +57,12 @@ button:hover {
 </head>
 <body>
 
-<div id="topBar">
-    <div>🌍 Modern Warfare – Global Conflict</div>
-    <div>Oil: <span id="oil">100</span></div>
-</div>
-
 <div id="gameContainer">
 
-<div id="mapContainer">
-<svg id="map" width="2000" height="1000">
-
-<!-- Simplified world-style regions -->
-<rect id="usa" class="country player" x="200" y="300" width="200" height="120"/>
-<rect id="russia" class="country ai" x="900" y="200" width="300" height="120"/>
-<rect id="china" class="country ai" x="1050" y="350" width="200" height="120"/>
-<rect id="iran" class="country ai" x="950" y="400" width="120" height="100"/>
-<rect id="nk" class="country ai" x="1250" y="330" width="80" height="80"/>
-
-</svg>
-</div>
+<div id="map"></div>
 
 <div id="sidePanel">
-    <h3 id="selectedName">Select Country</h3>
+    <h2 id="selectedName">Select Country</h2>
     <div id="stats"></div>
     <button onclick="attack()">Attack</button>
     <button onclick="retreat()">Retreat</button>
@@ -112,20 +73,28 @@ button:hover {
 </div>
 
 <script>
-let oil = 100;
-let zoom = 1;
+let map = L.map('map').setView([20, 0], 2);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
 let selected = null;
 
 let countries = {
-    usa: { owner: "player", infantry: 50, tanks: 10 },
-    russia: { owner: "ai", infantry: 40, tanks: 8 },
-    china: { owner: "ai", infantry: 45, tanks: 7 },
-    iran: { owner: "ai", infantry: 25, tanks: 4 },
-    nk: { owner: "ai", infantry: 20, tanks: 3 }
+    usa: { name: "USA", owner: "player", infantry: 50, tanks: 10, coords: [37, -95] },
+    russia: { name: "Russia", owner: "ai", infantry: 40, tanks: 8, coords: [60, 100] },
+    china: { name: "China", owner: "ai", infantry: 45, tanks: 7, coords: [35, 105] },
+    iran: { name: "Iran", owner: "ai", infantry: 25, tanks: 4, coords: [32, 53] },
+    nk: { name: "North Korea", owner: "ai", infantry: 20, tanks: 3, coords: [40, 127] }
 };
 
-function updateUI() {
-    document.getElementById("oil").innerText = oil;
+let markers = {};
+
+function getColor(owner) {
+    if (owner === "player") return "green";
+    if (owner === "ai") return "red";
+    return "gray";
 }
 
 function log(msg) {
@@ -134,10 +103,26 @@ function log(msg) {
     logBox.scrollTop = logBox.scrollHeight;
 }
 
+function updateMarker(id) {
+    let c = countries[id];
+    if (markers[id]) {
+        map.removeLayer(markers[id]);
+    }
+    markers[id] = L.circleMarker(c.coords, {
+        radius: 10,
+        fillColor: getColor(c.owner),
+        color: "#000",
+        weight: 1,
+        fillOpacity: 0.8
+    }).addTo(map);
+
+    markers[id].on("click", () => selectCountry(id));
+}
+
 function selectCountry(id) {
     selected = id;
     let c = countries[id];
-    document.getElementById("selectedName").innerText = id.toUpperCase();
+    document.getElementById("selectedName").innerText = c.name;
     document.getElementById("stats").innerHTML =
         "Owner: " + c.owner +
         "<br>Infantry: " + c.infantry +
@@ -146,32 +131,29 @@ function selectCountry(id) {
 
 function attack() {
     if (!selected) return;
-
     let defender = countries[selected];
     let attacker = countries["usa"];
-
     if (defender.owner === "player") return;
 
-    let attackPower = attacker.infantry + (attacker.tanks * 3) + Math.random()*20;
-    let defendPower = defender.infantry + (defender.tanks * 3) + Math.random()*20;
+    let attackPower = attacker.infantry + attacker.tanks * 3 + Math.random()*20;
+    let defendPower = defender.infantry + defender.tanks * 3 + Math.random()*20;
 
     if (attackPower > defendPower) {
-        log("USA captured " + selected.toUpperCase());
+        log("USA captured " + defender.name);
         defender.owner = "player";
-        defender.infantry = Math.floor(attacker.infantry / 2);
-        defender.tanks = Math.floor(attacker.tanks / 2);
-        attacker.infantry = Math.floor(attacker.infantry / 2);
-        attacker.tanks = Math.floor(attacker.tanks / 2);
-        document.getElementById(selected).classList.remove("ai");
-        document.getElementById(selected).classList.add("player");
+        defender.infantry = Math.floor(attacker.infantry/2);
+        defender.tanks = Math.floor(attacker.tanks/2);
+        attacker.infantry = Math.floor(attacker.infantry/2);
+        attacker.tanks = Math.floor(attacker.tanks/2);
     } else {
-        log("Attack failed on " + selected.toUpperCase());
-        attacker.infantry -= Math.floor(Math.random()*10);
+        log("Attack failed on " + defender.name);
+        attacker.infantry -= 5;
         if (attacker.infantry < 0) attacker.infantry = 0;
     }
 
-    aiTurn();
+    updateMarker(selected);
     selectCountry(selected);
+    aiTurn();
 }
 
 function retreat() {
@@ -188,42 +170,29 @@ function retreat() {
 }
 
 function aiTurn() {
-    let targets = Object.keys(countries).filter(id => countries[id].owner === "player" && id !== "usa");
-    if (targets.length === 0) return;
+    let aiList = Object.keys(countries).filter(id => countries[id].owner === "ai");
+    if (aiList.length === 0) return;
 
-    let target = targets[Math.floor(Math.random()*targets.length)];
-    let aiCountries = Object.keys(countries).filter(id => countries[id].owner === "ai");
-    if (aiCountries.length === 0) return;
-
-    let attackerId = aiCountries[Math.floor(Math.random()*aiCountries.length)];
+    let attackerId = aiList[Math.floor(Math.random()*aiList.length)];
     let attacker = countries[attackerId];
-    let defender = countries[target];
 
-    let attackPower = attacker.infantry + (attacker.tanks * 3) + Math.random()*15;
-    let defendPower = defender.infantry + (defender.tanks * 3) + Math.random()*15;
+    let defender = countries["usa"];
+
+    let attackPower = attacker.infantry + attacker.tanks * 3 + Math.random()*15;
+    let defendPower = defender.infantry + defender.tanks * 3 + Math.random()*15;
 
     if (attackPower > defendPower) {
-        log(attackerId.toUpperCase() + " captured " + target.toUpperCase());
-        defender.owner = "ai";
-        document.getElementById(target).classList.remove("player");
-        document.getElementById(target).classList.add("ai");
+        log(attacker.name + " damaged USA!");
+        defender.infantry -= 5;
+        if (defender.infantry < 0) defender.infantry = 0;
     } else {
-        log(attackerId.toUpperCase() + " failed attacking " + target.toUpperCase());
+        log(attacker.name + " failed attacking USA");
     }
 }
 
-document.querySelectorAll(".country").forEach(el => {
-    el.addEventListener("click", () => selectCountry(el.id));
-});
-
-document.getElementById("mapContainer").addEventListener("wheel", e => {
-    e.preventDefault();
-    zoom += e.deltaY * -0.001;
-    zoom = Math.min(Math.max(.5, zoom), 3);
-    document.getElementById("map").style.transform = `scale(${zoom})`;
-});
-
-updateUI();
+for (let id in countries) {
+    updateMarker(id);
+}
 </script>
 
 </body>
