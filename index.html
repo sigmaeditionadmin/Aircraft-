@@ -154,14 +154,12 @@ log.scrollTop=log.scrollHeight;
 }
 
 const countries={
-
 USA:[38,-97],
 Brazil:[-10,-55],
 UK:[54,-2],
 India:[21,78],
 Japan:[36,138],
 Australia:[-25,133]
-
 };
 
 const originSelect=document.getElementById("originSelect");
@@ -242,7 +240,6 @@ marker.setLatLng([lat,lng]);
 if(i>=steps){
 
 clearInterval(move);
-
 marker.remove();
 
 addLog(type+" attacked "+targetSelect.value+" with "+amount);
@@ -257,7 +254,7 @@ function launchMissile(){
 
 let target=countries[targetSelect.value];
 
-L.marker(target,{
+let missile=L.marker(target,{
 icon:L.divIcon({
 html:"🚀",
 className:"",
@@ -267,18 +264,26 @@ iconSize:[20,20]
 
 addLog("Missile launched at "+targetSelect.value);
 
+setTimeout(()=>{
+map.removeLayer(missile);
+},2000);
+
 }
 
 function launchNuke(){
 
 let target=countries[targetSelect.value];
 
-L.circle(target,{
+let blast=L.circle(target,{
 radius:600000,
 color:"red"
 }).addTo(map);
 
 addLog("NUKE DETONATED on "+targetSelect.value+" ☢️");
+
+setTimeout(()=>{
+map.removeLayer(blast);
+},2000);
 
 }
 
